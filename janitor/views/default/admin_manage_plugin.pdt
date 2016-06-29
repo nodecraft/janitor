@@ -1,0 +1,64 @@
+<?php
+$this->Widget->clear();
+$this->Widget->create($this->_("Janitor.index.boxtitle_manage", true));
+$this->Form->create();
+?>
+<div class="inner">
+	<div class="title_row first">
+		<h3><?php $this->_("Janitor.index.heading_settings");?></h3>
+	</div>
+
+	<div class="pad">
+		<ul>
+			<li>
+				<?php
+					$this->Form->label($this->_("Janitor.index.field.pending_minutes", true), "pending_minutes");
+					$this->Form->fieldText(
+						"pending_minutes",
+						$this->Html->ifSet($vars->pending_minutes),
+						array("id" => "pending_minutes")
+					);
+				?>
+			</li>
+			<li>
+				<?php
+					$this->Form->label($this->_("Janitor.index.field.cancelled_minutes", true), "cancelled_minutes");
+					$this->Form->fieldText(
+						"cancelled_minutes",
+						$this->Html->ifSet($vars->cancelled_minutes),
+						array("id" => "cancelled_minutes")
+					);
+				?>
+			</li>
+			<li>
+				<?php
+					$this->Form->label($this->_("Janitor.index.field.accepted_minutes", true), "accepted_minutes");
+					$this->Form->fieldText(
+						"accepted_minutes",
+						$this->Html->ifSet($vars->accepted_minutes),
+						array("id" => "accepted_minutes")
+					);
+			   ?>
+			</li>
+			<li>
+				<?php
+					$this->Form->label(
+						$this->_("Janitor.index.field.service_action", true),
+						"service_action"
+					);
+					$this->Form->fieldSelect(
+						"service_action",
+						$this->Html->ifSet($service_actions),
+						$this->Html->ifSet($vars->service_action),
+						array("id" => "service_action")
+					);
+				?>
+			</li>
+		</ul>
+	</div>
+	<div class="button_row"><a class="btn_right submit" href="#"><?php $this->_("Janitor.index.field.submit");?></a></div>
+</div>
+<?php
+$this->Form->end();
+$this->Widget->end();
+?>

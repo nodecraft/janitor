@@ -1,0 +1,11 @@
+{
+    "version": "1.0.0",
+    "name": "Janitor",
+    "description": "Removes and cleans up fullfilled and abandoned orders for a cleaner database and order experience.",
+    "authors": [
+        {
+            "name": "NodeCraft Hosting LLC",
+            "url": "https://NodeCraft.com"
+        }
+    ]
+}
