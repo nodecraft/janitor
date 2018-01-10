@@ -24,28 +24,7 @@ class JanitorToolbelt extends JanitorModel {
 	public function cancel() {
 		$results = array();
 		foreach($this->staleOrders('cancel') as $order) {
-			$results[$order->id] = array();
-
-			// Update order status
-			$results[$order->id]['order'] = $this->Record->where("id", "=", $order->id)->
-				set("status", "canceled")->update("orders");
-
-			// update services status, where applicable
-			$results[$order->id]['services'] = $this->Record->
-				innerJoin("order_services", "order_services.service_id", "=", "services.id", false)->
-				where("order_services.order_id", "=", $order->id)->
-				where("services.status", "in", array("pending", "in_review"))->
-				set("services.status", "canceled")->
-				update("services");
-
-			// update invoices
-			if (!isset($this->Invoices)) {
-				Loader::loadModels($this, array("Invoices"));
-			}
-			$results[$order->id]['invoice'] = $this->Invoices->edit($order->invoice_id, array(
-				'note_public' => Language::_("Janitor.invoice.void_note", true),
-				'status' => "void"
-			));
+			$results[$order->id] = $this->cancelOrder($order);
 		}
 
 		return $results;
@@ -59,28 +38,86 @@ class JanitorToolbelt extends JanitorModel {
 	public function clean() {
 		$results = array();
 		foreach($this->staleOrders('clean') as $order) {
-			$results[$order->id] = array();
-			if ($order->settings['service_action'] === 'delete') {
-				$services = $this->Record->select(array('services.id'))->from("order_services")->
-					innerJoin("services", "services.id", "=", "order_services.service_id", false)->
-					where("order_services.order_id", "=", $order->id)->
-					where("services.status", "=", "canceled")->
-					fetchAll();
-
-				$results[$order->id]['services'] = array();
-				foreach($services as $service) {
-					$results[$order->id]['services'][$service->id] = $this->Record->from("services")->where("id", "=", $service->id)->delete();
-				}
-			}
-			$results[$order->id]['order_services'] = $this->Record->from("order_services")->where("order_id", "=", $order->id)->delete();
-			$results[$order->id]['order'] = $this->Record->from("orders")->where("id", "=", $order->id)->delete();
-
+			$results[$order->id] = $this->cleanOrder($order);
 		}
 		return $results;
 	}
 
 	/**
-	 * Fetch stale orders
+	 * Performs lookup and handles either cancel or clean method on order. Ignores time limits
+	 *
+	 * @param object $order Object returned from the order table
+	 * @return array
+	 */
+	public function handleOrder($order_number, $method='cancel') {
+		$order = $this->Record->select()->from("orders")->where("order_number", "=", $order_number)->fetch();
+		$method_name = $method . 'Order';
+		if($order && method_exists($this, $method_name)){
+			return $this->{$method_name}($order);
+		}
+		return false;
+	}
+
+
+	/**
+	 * Perform cancel order function to cancel order, invoice, and service
+	 *
+	 * @param object $order Object returned from the order table
+	 * @return array
+	 */
+	private function cancelOrder($order) {
+		$results = array();
+
+		// Update order status
+		$results['order'] = $this->Record->where("id", "=", $order->id)->
+			set("status", "canceled")->update("orders");
+
+		// update services status, where applicable
+		$results['services'] = $this->Record->
+			innerJoin("order_services", "order_services.service_id", "=", "services.id", false)->
+			where("order_services.order_id", "=", $order->id)->
+			where("services.status", "in", array("pending", "in_review"))->
+			set("services.status", "canceled")->
+			update("services");
+
+		// update invoices
+		if (!isset($this->Invoices)) {
+			Loader::loadModels($this, array("Invoices"));
+		}
+		$results['invoice'] = $this->Invoices->edit($order->invoice_id, array(
+			'note_public' => Language::_("Janitor.invoice.void_note", true),
+			'status' => "void"
+		));
+		return $results;
+	}
+
+	/**
+	 * Perform clean order function to delete cancelled invoices and remove order data
+	 *
+	 * @param object $order Object returned from the order table
+	 * @return array
+	 */
+	private function cleanOrder($order) {
+		$results = array();
+		if ($order->settings['service_action'] === 'delete') {
+			$services = $this->Record->select(array('services.id'))->from("order_services")->
+				innerJoin("services", "services.id", "=", "order_services.service_id", false)->
+				where("order_services.order_id", "=", $order->id)->
+				where("services.status", "=", "canceled")->
+				fetchAll();
+
+			$results['services'] = array();
+			foreach($services as $service) {
+				$results['services'][$service->id] = $this->Record->from("services")->where("id", "=", $service->id)->delete();
+			}
+		}
+		$results['order_services'] = $this->Record->from("order_services")->where("order_id", "=", $order->id)->delete();
+		$results['order'] = $this->Record->from("orders")->where("id", "=", $order->id)->delete();
+		return $results;
+	}
+
+	/**
+	 * Fetch stale orders to be marked for clean or cancellation
 	 *
 	 * @param string $type The type of stale orders to return. If not specified, return all
 	 * @return array
